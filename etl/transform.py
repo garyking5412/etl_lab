@@ -1,6 +1,26 @@
 import pandas as pd
 import logging
 
+def convert_excel_to_csv(excel_file_path, csv_file_path):
+    """
+    Convert an Excel file to CSV format.
+
+    Parameters:
+    excel_file_path (str): The path to the input Excel file.
+    csv_file_path (str): The path to the output CSV file.
+    """
+    try:
+        logging.info(f"Converting {excel_file_path} to {csv_file_path}")
+        df = pd.read_excel(excel_file_path)
+        df.to_csv(csv_file_path, index=False)
+        logging.info(f"Conversion successful: {csv_file_path}")
+    except FileNotFoundError:
+        logging.error(f"File not found: {excel_file_path}")
+        raise
+    except Exception as e:
+        logging.error(f"An error occurred during conversion: {e}")
+        raise
+    
 def clean_orders(order):
     """
     Clean the orders data.
