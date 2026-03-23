@@ -68,3 +68,11 @@ def test_signup_date_conversion():
     df_clean = clean_customers(df)
     print('signup_date type: ' + str(df_clean["signup_date"].dtype))
     assert pd.api.types.is_datetime64_any_dtype(df_clean["signup_date"]), "signup_date should be datetime type"
+    
+def test_empty_dataframe():
+    """Test rằng clean_customers có thể xử lý DataFrame rỗng"""
+    df = pd.DataFrame(columns=["customer_id", "first_name", "signup_date", "email", "phone", "country", "is_active"])
+    
+    df_clean = clean_customers(df)
+    
+    assert df_clean.empty, "Cleaned DataFrame should be empty when input is empty"
