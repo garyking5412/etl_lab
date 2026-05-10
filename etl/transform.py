@@ -1,5 +1,10 @@
 import pandas as pd
 import logging
+from datetime import datetime
+import great_expectations as ge
+import webbrowser
+import os
+import uuid
 
 def convert_excel_to_csv(excel_file_path, csv_file_path):
     """
@@ -112,3 +117,48 @@ def join_order_product(order_df, product_df):
     merged_df = pd.merge(order_df, product_df, on='product_id', how='left')
     logging.info(f"Join completed. Result: {len(merged_df)} rows")
     return merged_df
+
+def validate_minio_raw_data(df):
+    # Implement validation logic for raw data in MinIO
+    logging.info("Validating raw data from MinIO")
+    context = ge.get_context()
+    context.add_or_update_expectation_suite(expectation_suite_name="bronze_data_expectation_suite")
+    datasource_name = "pandas_datasource"
+    data_asset_name = "current_dataframe"
+    datasource = context.sources.add_or_update_pandas(name=datasource_name)
+    data_asset = datasource.add_dataframe_asset(name=data_asset_name)
+    batch_request = data_asset.build_batch_request(dataframe=df)
+    
+    validator = context.get_validator(batch_request=batch_request, expectation_suite_name="bronze_data_expectation_suite")
+    validator.expect_column_values_to_not_be_null("stock_name")
+    validator.expect_column_values_to_be_of_type("stock_name", "str")
+    validator.expect_column_values_to_not_be_null(column="price", mostly=0.95)
+    validator.expect_column_values_to_be_of_type("price", "float64")
+    # validator.expect_column_values_to_be_between(column = "request_time", min_value=datetime.combine(datetime.now().date(), datetime.min.time()), max_value=datetime.now())
+    
+    validator.save_expectation_suite(discard_failed_expectations=False)
+    # validation_results = validator.validate()
+    
+    checkpoint = context.add_or_update_checkpoint(
+        name="my_checkpoint",
+        validator=validator,
+    )
+    
+    validation_results = checkpoint.run()
+    context.build_data_docs()
+    context.open_data_docs()
+    
+    logging.info(f"Validation results documented: {context.get_docs_sites_urls()}")
+    if validation_results["success"]:
+        logging.info("Validation successful: Raw data from MinIO is valid")
+        return True
+    else:
+        logging.error("Validation failed: Raw data from MinIO is invalid")
+        return False
+    
+def enrich_data(df):
+    # Implement data enrichment logic
+    logging.info("Enriching data")
+    df['id'] = [uuid.uuid4() for _ in range(len(df))]
+    logging.info("Data enrichment completed")
+    return df

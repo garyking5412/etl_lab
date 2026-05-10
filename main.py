@@ -1,7 +1,7 @@
 import logging
 from etl.extract import extract_data
-from etl.transform import clean_orders, clean_customers, clean_products, join_order_customer, join_order_product, convert_excel_to_csv
-from etl.load import load_data_to_csv, load_to_postgres
+from etl.transform import clean_orders, clean_customers, clean_products, join_order_customer, join_order_product, convert_excel_to_csv, validate_minio_raw_data, enrich_data
+from etl.load import load_data_to_csv, load_to_postgres, extract_data_frame_from_minio, convert_excel_and_upload_file_to_minio
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -82,7 +82,8 @@ def run_basic_pipeline():
         print("[4] Aggregate Orders and Customers")
         print("[5] Aggregate Orders and Products")
         print("[6] Convert Excel to CSV")
-        print("[7] Exit")
+        print("[7] Run Advanced Pipeline")
+        print("[8] Exit")
 
         choice = input("Enter your choice: ")
         match choice:
@@ -98,10 +99,24 @@ def run_basic_pipeline():
                     logging.error(f"An error occurred during the conversion process: {e}")
                     raise
             case "7":
+                run_advanced_pipeline()
+            case "8":
                 logging.info('Exiting the program.')
                 return
             case _:
-                print("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, or 7.")
+                print("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, or 8 .")
+                
+def run_advanced_pipeline():
+    logging.info('starting advanced ETL pipeline')
+    for files_map in extract_data_frame_from_minio():
+        for object_name, data_frame in files_map.items():
+            if validate_minio_raw_data(data_frame):
+                logging.info("Data validation passed. Proceeding with transformation and loading.")
+                data_frame = enrich_data(data_frame)
+                convert_excel_and_upload_file_to_minio(data_frame, object_name)
+            else:
+                logging.warning("Data validation failed. Skipping this DataFrame.")
+    pass
 
 if __name__ == "__main__" :
     run_basic_pipeline()
